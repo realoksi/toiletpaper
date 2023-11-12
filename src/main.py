@@ -21,7 +21,7 @@ FRUITS = [
 
 
 class state:
-    def __init__(self, title: str, callback: Callable[[], None]) -> None:
+    def __init__(self, title: str, callback: Callable[[], None] = None) -> None:
         self._title = title
         self._callback = callback
 
@@ -46,8 +46,8 @@ class state:
 
 
 class multistate:
-    def __init__(self, states: list[state] = None) -> None:
-        self.states = [] if states == None else states
+    def __init__(self, states: list[state] = list()) -> None:
+        self.states = states
 
     def forward(self) -> None:
         self.states.append(self.states.pop(0))
@@ -70,7 +70,7 @@ def main(stdscr):
     curses.curs_set(0)
 
     options = [
-        multistate([state("Hello", None), state("World!", None)]),
+        multistate([state("Hello"), state("World!")]),
         state("Quit", exit),
     ]
 
