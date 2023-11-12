@@ -65,7 +65,7 @@ class multistate:
 
 
 def main(stdscr):
-    # stdscr.nodelay(True)
+    stdscr.nodelay(True)
 
     curses.curs_set(0)
 
@@ -76,6 +76,7 @@ def main(stdscr):
 
     refresh_age = 0
     fruit = random.choice(FRUITS)
+    highlight = 0
 
     while 1:
         stdscr.clear()
@@ -102,6 +103,28 @@ def main(stdscr):
             + ", refresh_age="
             + str(refresh_age),
         )
+
+        # render all available options
+        for i, e in enumerate(options):
+            if i == highlight:
+                stdscr.addstr(i + 3, 0, e.title, curses.A_STANDOUT)
+            else:
+                stdscr.addstr(i + 3, 0, e.title)
+
+        ch = stdscr.getch()
+
+        match ch:
+            case curses.KEY_UP:
+                highlight = max(0, highlight - 1)
+            case curses.KEY_DOWN:
+                highlight = min(len(options) - 1, highlight + 1)
+            case _:
+                if ch == ord("\n"):
+                    if options[highlight].callback:
+                        options[highlight].callback()
+
+                    if isinstance(options[highlight], multistate):
+                        options[highlight].forward()
 
         stdscr.refresh()
 
