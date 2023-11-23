@@ -1,70 +1,8 @@
 import asyncio
 import curses
-from typing import Callable, Tuple
+from typing import Callable
 
-
-# events = {curses.KEY_UP: [myfunction, myotherfunction]}
-
-
-# x, y
-class Navigator:
-    def __init__(
-        self,
-        x: int = 0,
-        y: int = 0,
-        strict: bool = False,
-        bounds: Tuple[
-            Tuple[int, int], Tuple[int, int]
-        ] = None,  # bounds is ((minimum x, y), and (maximum x, y))
-    ) -> None:
-        self.x = x
-        self.x_origin = x
-        self.y = y
-        self.y_origin = x
-
-        self.strict = strict
-        self.bounds = bounds
-
-    def x_within(self) -> bool:
-        return self.x >= self.bounds[0][0] and self.x <= self.bounds[1][0]
-
-    def y_within(self) -> bool:
-        return self.y >= self.bounds[0][1] and self.y <= self.bounds[1][1]
-
-    def within(self) -> bool:
-        return self.x_within() and self.y_within()
-
-    def reset(self):
-        self.x = self.x_origin
-        self.y = self.y_origin
-
-    def up(self, distance: int = 1):
-        self.y -= distance
-
-        if self.strict:
-            if not self.y_within():
-                self.y += distance
-
-    def down(self, distance: int = 1):
-        self.y += distance
-
-        if self.strict:
-            if not self.y_within():
-                self.y -= distance
-
-    def left(self, distance: int = 1):
-        self.x -= distance
-
-        if self.strict:
-            if not self.x_within():
-                self.x += distance
-
-    def right(self, distance: int = 1):
-        self.x += distance
-
-        if self.strict:
-            if not self.x_within():
-                self.x -= distance
+from navigator import Navigator
 
 
 class AsyncDisplay:
@@ -73,7 +11,9 @@ class AsyncDisplay:
         self.ok = False
         self.events = dict()
 
-        self.navigator = Navigator()
+        self.navigator = Navigator(
+            origin=[0, 0], strict=True, limits=([0, 0], [24, 24])
+        )
 
         curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_GREEN)
 
@@ -116,13 +56,13 @@ class AsyncDisplay:
             else:
                 match ch:
                     case curses.KEY_UP:
-                        self.navigator.up()
+                        self.navigator.move(0, -1)
                     case curses.KEY_DOWN:
-                        self.navigator.down()
+                        self.navigator.move(0, 1)
                     case curses.KEY_LEFT:
-                        self.navigator.left()
+                        self.navigator.move(1, -1)
                     case curses.KEY_RIGHT:
-                        self.navigator.right()
+                        self.navigator.move(1, 1)
 
             curses.flushinp()  # We'll need to flush the input queue after we process input on every iteration. Should we not do this, it enables a user to be able to queue too many keys, and processing of entries in that queue will drastically backup the script.
 
