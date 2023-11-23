@@ -6,9 +6,9 @@ from display import AsyncDisplay
 
 def pre_process(async_display: AsyncDisplay):
     async_display.stdscr.addstr(
-        async_display.navigator.y,
-        async_display.navigator.x,
-        f"x={async_display.navigator.x}, y={async_display.navigator.y}",
+        async_display.navigator[0],
+        async_display.navigator[1],
+        f"x={async_display.navigator[1]}/{async_display.navigator.limits[1][1]}, y={async_display.navigator[0]}/{async_display.navigator.limits[1][0]}",
         curses.color_pair(1),
     )
 
