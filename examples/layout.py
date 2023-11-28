@@ -20,7 +20,7 @@ class Window:
             for window in self.windows:
                 window.render(ch=ch)
         else:
-            self.window.clear()
+            self.window.erase()
 
             if self.callback:
                 self.callback(self.window, ch)
@@ -73,30 +73,29 @@ class Window:
         return self.windows
 
 
-class Layout(Thread):
+class Layout(Thread, Window):
     def __init__(
         self,
         stdscr,
-        callback: Callable[["Window", int], None] = None,
+        callback: Callable[[Any, int], None] = None,
         exit_key: int = curses.KEY_DC,
         wait: float = 0.037,
     ):
         Thread.__init__(self)
+        Window.__init__(self, window=stdscr, callback=callback)
 
         self.exit_key = exit_key
         self.wait = wait
 
-        self.window = Window(stdscr, callback)
-
         self.ok = 1
 
-        self.window.window.nodelay(1)
+        self.window.nodelay(1)
 
         curses.curs_set(0)
 
     def run(self):
         while self.ok:
-            ch = self.window.window.getch()
+            ch = self.window.getch()
 
             match ch:
                 case self.exit_key:
@@ -108,7 +107,7 @@ class Layout(Thread):
 
             curses.flushinp()
 
-            self.window.render(ch)
+            self.render(ch)
 
             time.sleep(self.wait)
 
@@ -157,18 +156,18 @@ def main(stdscr):
         exit_key=curses.KEY_END,
     )
 
-    layout.window.split("horizontal")
+    layout.split("horizontal")
 
-    layout.window.windows[1].callback = about_callback
-    layout.window.windows[1].window.bkgd(" ", curses.color_pair(random.randrange(1, 8)))
+    layout.windows[1].callback = about_callback
+    layout.windows[1].window.bkgd(" ", curses.color_pair(random.randrange(1, 8)))
 
-    layout.window.windows[0].split("verticle")
+    layout.windows[0].split("verticle")
 
-    for window in layout.window.windows[0].windows:
+    for window in layout.windows[0].windows:
         window.window.bkgd(" ", curses.color_pair(random.randrange(1, 8)))
 
-    layout.window.windows[0].windows[0].callback = about_callback
-    layout.window.windows[0].windows[1].callback = about_callback
+    layout.windows[0].windows[0].callback = about_callback
+    layout.windows[0].windows[1].callback = about_callback
 
     layout.start()
 
