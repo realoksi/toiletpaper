@@ -27,50 +27,75 @@ class Window:
 
             self.window.refresh()
 
+    def resize(self):
+        pass
+
+    def __split_horizontal(
+        self, columns: int = 0, callbacks: List[Callable[[Any, int], None]] = None
+    ) -> List["Window"]:
+        # NOTE: By performing a floored division on either nlines or ncols, there's a potential for
+        # a single column or line to be missed, leaving whichever blank. A temporary solution is to
+        # perform the floored division, and add one to the result of the division only when the
+        # original value of ncols or nlines isn't evenly divisible by 2.
+
+        begin_y, begin_x = self.window.getbegyx()
+
+        max_y, max_x = self.window.getmaxyx()
+
+        ncols = columns if columns else max_x // 2
+
+        self.windows = [
+            Window(curses.newwin(max_y, ncols, begin_y, begin_x), callbacks[0]),
+            Window(
+                curses.newwin(
+                    max_y,
+                    (max_x - columns) if columns else max_x // 2,
+                    begin_y,
+                    ncols,
+                ),
+                callbacks[1],
+            ),
+        ]
+
+        return self.windows
+
+    def __split_verticle(
+        self, lines: int = 0, callbacks: List[Callable[[Any, int], None]] = None
+    ) -> List["Window"]:
+        begin_y, begin_x = self.window.getbegyx()
+
+        max_y, max_x = self.window.getmaxyx()
+
+        nlines = lines if lines else max_y // 2
+
+        self.windows = [
+            Window(curses.newwin(nlines, max_x, begin_y, begin_x), callbacks[0]),
+            Window(
+                curses.newwin(
+                    (max_y - nlines) if lines else max_y // 2, max_x, nlines, begin_x
+                ),
+                callbacks[1],
+            ),
+        ]
+
+        return self.windows
+
     def split(
-        self, direction: str = "horizontal", clear_callback: bool = True
+        self,
+        verticle: bool = False,
+        lines: int = 0,
+        columns: int = 0,
+        callbacks: List[Callable[[Any, int], None]] = None,
     ) -> List["Window"]:
         if self.windows:
             return -1
 
-        begin_y, begin_x = self.window.getbegyx()
-        nlines, ncols = self.window.getmaxyx()
+        self.callback = None
 
-        # TODO: Allow specification of sizes on split. Perhaps specification of the
-        # first window (left, or top) size, and the second will fill the remainder.
+        if verticle:
+            return self.__split_verticle(lines=lines, callbacks=callbacks)
 
-        self.windows = []
-
-        if direction == "horizontal":
-            self.windows.append(Window(curses.newwin(nlines, ncols // 2, begin_y, 0)))
-            self.windows.append(
-                Window(
-                    curses.newwin(
-                        nlines,
-                        (ncols // 2) + 1 if (ncols % 2) else ncols // 2,
-                        begin_y,
-                        ncols // 2,
-                    )
-                )
-            )
-        elif direction == "verticle":
-            self.windows.append(Window(curses.newwin(nlines // 2, ncols, 0, begin_x)))
-            self.windows.append(
-                Window(
-                    curses.newwin(
-                        (nlines // 2) + 1 if (nlines % 2) else nlines // 2,
-                        ncols,
-                        nlines // 2,
-                        begin_x,
-                    )
-                )
-            )
-        else:
-            return -1
-
-        if clear_callback:
-            self.callback = None
-        return self.windows
+        return self.__split_horizontal(columns=columns, callbacks=callbacks)
 
 
 class Layout(Thread, Window):
@@ -138,6 +163,14 @@ def about_callback(window, ch):
     window.addstr(index + 5, 0, "Press the 'end' key to stop the application.")
 
 
+def statusbar_callback(window, ch):
+    window.addstr(
+        0,
+        0,
+        "File Edit View Playback Library Help",
+    )
+
+
 def main(stdscr):
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLUE)
@@ -156,18 +189,21 @@ def main(stdscr):
         exit_key=curses.KEY_END,
     )
 
-    layout.split("horizontal")
+    layout.split(verticle=True, lines=1, callbacks=[statusbar_callback, None])
 
-    layout.windows[1].callback = about_callback
-    layout.windows[1].window.bkgd(" ", curses.color_pair(random.randrange(1, 8)))
+    statusbar = layout.windows[0]
 
-    layout.windows[0].split("verticle")
+    statusbar.window.bkgd(" ", curses.color_pair(3))
 
-    for window in layout.windows[0].windows:
-        window.window.bkgd(" ", curses.color_pair(random.randrange(1, 8)))
+    content = layout.windows[1]
 
-    layout.windows[0].windows[0].callback = about_callback
-    layout.windows[0].windows[1].callback = about_callback
+    content.split(callbacks=[about_callback, about_callback])
+
+    left_content = content.windows[0]
+    left_content.window.bkgd(" ", curses.color_pair(5))
+
+    right_content = content.windows[1]
+    right_content.window.bkgd(" ", curses.color_pair(4))
 
     layout.start()
 
