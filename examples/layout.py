@@ -27,75 +27,63 @@ class Window:
 
             self.window.refresh()
 
+    # When the window is resized, we could try to go off the original value
+    # for the position of the lower-right cell of that window.
     def resize(self):
         pass
 
-    def __split_horizontal(
-        self, columns: int = 0, callbacks: List[Callable[[Any, int], None]] = None
-    ) -> List["Window"]:
+    def split(
+        self,
+        columns: int = 0,
+        verticle: bool = False,
+        lines: int = 0,
+        callbacks: List[Callable[[Any, int], None]] = None,
+    ) -> (List["Window"], None):
+        if self.windows:
+            return -1
+
         # NOTE: By performing a floored division on either nlines or ncols, there's a potential for
         # a single column or line to be missed, leaving whichever blank. A temporary solution is to
         # perform the floored division, and add one to the result of the division only when the
         # original value of ncols or nlines isn't evenly divisible by 2.
 
         begin_y, begin_x = self.window.getbegyx()
-
         max_y, max_x = self.window.getmaxyx()
 
-        ncols = columns if columns else max_x // 2
+        if verticle:
+            nlines = lines if lines else max_y // 2
 
-        self.windows = [
-            Window(curses.newwin(max_y, ncols, begin_y, begin_x), callbacks[0]),
-            Window(
-                curses.newwin(
-                    max_y,
-                    (max_x - columns) if columns else max_x // 2,
-                    begin_y,
-                    ncols,
+            self.windows = [
+                Window(curses.newwin(nlines, max_x, begin_y, begin_x), callbacks[0]),
+                Window(
+                    curses.newwin(
+                        (max_y - nlines) if lines else max_y // 2,
+                        max_x,
+                        nlines,
+                        begin_x,
+                    ),
+                    callbacks[1],
                 ),
-                callbacks[1],
-            ),
-        ]
+            ]
+        else:
+            ncols = columns if columns else max_x // 2
 
-        return self.windows
-
-    def __split_verticle(
-        self, lines: int = 0, callbacks: List[Callable[[Any, int], None]] = None
-    ) -> List["Window"]:
-        begin_y, begin_x = self.window.getbegyx()
-
-        max_y, max_x = self.window.getmaxyx()
-
-        nlines = lines if lines else max_y // 2
-
-        self.windows = [
-            Window(curses.newwin(nlines, max_x, begin_y, begin_x), callbacks[0]),
-            Window(
-                curses.newwin(
-                    (max_y - nlines) if lines else max_y // 2, max_x, nlines, begin_x
+            self.windows = [
+                Window(curses.newwin(max_y, ncols, begin_y, begin_x), callbacks[0]),
+                Window(
+                    curses.newwin(
+                        max_y,
+                        (max_x - columns) if columns else max_x // 2,
+                        begin_y,
+                        ncols,
+                    ),
+                    callbacks[1],
                 ),
-                callbacks[1],
-            ),
-        ]
-
-        return self.windows
-
-    def split(
-        self,
-        verticle: bool = False,
-        lines: int = 0,
-        columns: int = 0,
-        callbacks: List[Callable[[Any, int], None]] = None,
-    ) -> List["Window"]:
-        if self.windows:
-            return -1
+            ]
 
         self.callback = None
 
-        if verticle:
-            return self.__split_verticle(lines=lines, callbacks=callbacks)
-
-        return self.__split_horizontal(columns=columns, callbacks=callbacks)
+        return self.windows
 
 
 class Layout(Thread, Window):
@@ -111,7 +99,6 @@ class Layout(Thread, Window):
 
         self.exit_key = exit_key
         self.wait = wait
-
         self.ok = 1
 
         self.window.nodelay(1)
@@ -129,6 +116,13 @@ class Layout(Thread, Window):
                     self.wait += 0.01
                 case curses.KEY_NPAGE:
                     self.wait -= 0.01
+                case curses.KEY_RESIZE:
+                    # Move your mom with window.mvwin
+                    # We should be able to move everything to their new
+                    # positions without a crash occurring? Maybe we can
+                    # check if a window is at a specific line+column.
+                    # fuck your mom with window.resize
+                    pass
 
             curses.flushinp()
 
@@ -160,14 +154,14 @@ def about_callback(window, ch):
         else:
             window.addstr(index + 4, 0, f"- {thread.name.lower()} <id:{thread.ident}>")
 
-    window.addstr(index + 5, 0, "Press the 'end' key to stop the application.")
+    window.addstr(index + 5, 0, "Press the 'delete' key to stop the application.")
 
 
 def statusbar_callback(window, ch):
     window.addstr(
         0,
         0,
-        "File Edit View Playback Library Help",
+        "🗃️ File ✍️ Edit 🔍 Search ❓ Help",
     )
 
 
@@ -183,17 +177,13 @@ def main(stdscr):
 
     stdscr.bkgd(" ", curses.color_pair(random.randrange(1, 8)))
 
-    layout = Layout(
-        stdscr=stdscr,
-        wait=0.0475,
-        exit_key=curses.KEY_END,
-    )
+    layout = Layout(stdscr)
 
     layout.split(verticle=True, lines=1, callbacks=[statusbar_callback, None])
 
     statusbar = layout.windows[0]
 
-    statusbar.window.bkgd(" ", curses.color_pair(3))
+    statusbar.window.bkgd(" ", curses.color_pair(1))
 
     content = layout.windows[1]
 
